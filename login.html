@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anmelden</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+    <script type="module" src="login.js" defer></script>
+    <link rel="shortcut icon" href="files/logo.svg" type=" image/x-icon" />
+</head>
+
+<body class="page_sign-up site-gap-left">
+    <div class="wrapper">
+        <h1>Anmelden</h1>
+        <main>
+            <form class="sign-up-form" id="form">
+                <div class="formular">
+                    <div>
+                        <p>E-Mail</p>
+                        <input required type="email" name="email" id="email_input" placeholder="E-Mail" />
+                    </div>
+                    <div>
+                        <p>Passwort</p>
+                        <input required type="password" name="password" id="password_input" placeholder="Passwort" />
+                    </div>
+                </div>
+                <button type="submit">Anmelden</button>
+                <p id="error-message" style="color: red;"></p>
+                <button id="google-signin-button">Mit Google anmelden</button>
+                <button class="weiterleitung-Registrieren">Noch kein Konto? Registriere dich hier</button>
+            </form>
+        </main>
+    </div>
+</body>
+
+</html>

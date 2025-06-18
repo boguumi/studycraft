@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noten hinzufügen</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="files/logo.svg" type="image/x-icon" />
+    <link rel="stylesheet" id="theme-stylesheet" href="styles/default.css">
+    <script type="text/javascript" src="navigation.js" defer></script>
+    <script type="module" src="database/script.js" defer></script>
+    <script type="module" src="main.js" defer></script>
+</head>
+
+<body class="site-gap-left">
+    <div class="burgermenu-container">
+        <div class="burgermenu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+    <nav class="burgermenu">
+        <ul>
+            <li><a class="link-navigation" href="index.html">Startseite</a></li>
+            <li class="link-navigation-active"><a class="link-navigation link-navigation-active"
+                    href="grades.html">Noten Tracker</a></li>
+            <li><a class="link-navigation" href="flashcards.html">Flashcards</a></li>
+            <li><a class="link-navigation" href="pomodoro.html">Pomodoro-Timer</a></li>
+        </ul>
+    </nav>
+    <h1>Noten Tracker</h1>
+    <div class="grade-tracking">
+        <div class="semester-oberview">
+        </div>
+        <main class="main-semester">
+        </main>
+    </div>
+
+    <button id="add-subject-button">Fach hinzufügen</button>
+    <div class="add-Semester-container">
+        <button class="add-Semester">Neues Semester hinzufügen</button>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="files/logo.svg" type=" image/x-icon" />
+    <script type="text/javascript" src="navigation.js" defer></script>
+    <script type="module" src="flashcards.js" defer></script>
+    <script type="text/javascript" src="flipclock.js" defer></script>
+
+
+    <link rel="stylesheet" id="theme-stylesheet" href="styles/default.css">
+    <script type="module" src="main.js" defer></script>
+</head>
+
+<body class="site-gap-left">
+    <div class="burgermenu-container">
+        <div class="burgermenu-toggle">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+    <nav class="burgermenu">
+        <ul>
+            <li><a class="link-navigation" href="index.html">Startseite</a></li>
+            <li><a class="link-navigation" href="grades.html">Noten Tracker</a></li>
+            <li class="link-navigation-active"><a class="link-navigation link-navigation-active"
+                    href="flashcards.html">Flashcards</a></li>
+            <li><a class="link-navigation" href="pomodoro.html">Pomodoro-Timer</a></li>
+        </ul>
+    </nav>
+    <h1>Flashcards</h1>
+    <main class=" main-pomodoro main-flashcard">
+        <div id="general-message-display" class="general-message"></div>
+
+        <div class="flashcard-left">
+            <p class="add-flashcards">
+                <button id="create-new-set-button">Neues Lernset erstellen</button>
+            </p>
+            <div class="flaschcards-oberview" id="flashcards-overview">
+            </div>
+        </div>
+
+        <div id="create-set-container" style="display: none;">
+            <h2>Neues Flashcard-Set erstellen</h2>
+            <label for="set-title">Titel des Sets:</label>
+            <input type="text" id="set-title" required><br><br>
+
+            <h3>Karten manuell hinzufügen:</h3>
+            <div id="cards-container">
+                <div class="card-input">
+                    <label for="question-1">Frage 1:</label>
+                    <textarea id="question-1" required></textarea><br>
+                    <label for="answer-1">Antwort 1:</label>
+                    <textarea id="answer-1" required></textarea><br>
+                    <button type="button" class="remove-card-button">Karte entfernen</button>
+                </div>
+            </div>
+            <button type="button" id="add-card-button">Weitere Karte hinzufügen</button><br><br>
+
+            <p>Oder importiere Karten aus einer Datei:</p>
+            <input type="file" id="import-file-input" accept=".txt,.csv">
+            <button type="button" id="import-cards-button">Karten importieren</button>
+            <p id="file-import-status" style="margin-top: 10px; font-size: 0.9em;"></p> <button type="button"
+                id="save-set-button">Set speichern</button>
+        </div>
+
+        <div id="flashcard-modal" class="modal">
+            <div class="modal-content">
+                <button id="close-modal-button">&times;</button>
+                <div id="card-display-area"></div>
+                <div id="answer-input-container">
+                    <input type="text" id="answer-input" placeholder="Deine Antwort hier...">
+                    <button id="mark-correct-button">Als richtig werten</button>
+                </div>
+                <div id="feedback-display" class="feedback-message"></div>
+                <div id="controls-container">
+                    <button id="prev-card-button">Zurück</button>
+                    <button id="flip-card-button">Umdrehen</button>
+                    <button id="next-card-button">Weiter</button>
+                </div>
+                <button id="check-answer-button">Antwort prüfen</button>
+            </div>
+        </div>
+
+
+        <div class="flipclock flipClockPomodoro">
+            <div class="flipclock-box flipclock-hour"></div>
+            <div class="flipclock-box flipclock-doublePoints">:</div>
+            <div class="flipclock-box flipclock-minutes"></div>
+        </div>
+    </main>
+</body>
+
+</html>
