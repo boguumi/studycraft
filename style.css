@@ -644,7 +644,8 @@ button.playPauseBtn {
     margin-top: 2vh;
 }
 
-#pomodoro-pause-play-icon {
+#pomodoro-pause-play-icon,
+#pomodoro-reset-icon {
 
     cursor: pointer;
 }
