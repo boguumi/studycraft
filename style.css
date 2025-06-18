@@ -95,6 +95,17 @@ h3 {
 
 
 
+/*************************************/
+/********      Scrollbar      ********/
+/*************************************/
+
+
+
+/* Für den gesamten Scrollbar-Bereich */
+::-webkit-scrollbar {
+    display: none;
+}
+
 /***********************************/
 /********      Burger      ********/
 /***********************************/
@@ -614,6 +625,12 @@ button.playPauseBtn {
     align-items: center;
     margin-left: 5vh;
     margin-right: 5vh;
+    fill: var(--color-sec);
+}
+
+.reset-timer-icon {
+    display: flex;
+    align-items: center;
     fill: var(--color-sec);
 }
 
