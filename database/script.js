@@ -20,12 +20,6 @@ console.log("Firebase App initialisiert für:", firebaseConfig.projectId);
 console.log("Realtime Database instanziiert mit URL:", firebaseConfig.databaseURL);
 console.log("Authentication Service verfügbar.");
 
-
-
-
-
-
-
 const mainSemester = document.querySelector(".main-semester");
 const addSubjectButton = document.getElementById("add-subject-button");
 const addSemesterButton = document.querySelector(".add-Semester");
@@ -33,38 +27,36 @@ const semesterOverview = document.querySelector(".semester-oberview");
 let currentUserUid = null;
 let currentSemesterKey = null;
 
-
-
-
-
-
-
-
-
-
-// Funktion zur Anzeige benutzerdefinierter Nachrichten anstelle von alert()
-function showMessage(message) {
+// Funktion zur Anzeige benutzerdefinierter Nachrichten
+// Verwendet die Klasse "messageBox" für das Styling
+function showMessage(message, type = 'info') { // 'type' kann 'info', 'success', 'error', 'warning' sein
     const messageBox = document.createElement('div');
-    messageBox.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: #333;
-        color: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        z-index: 1000;
-        font-family: 'Inter', sans-serif;
-        text-align: center;
-    `;
     messageBox.textContent = message;
+
+    // Füge die bereits vorhandene Klasse "messageBox" hinzu
+    messageBox.classList.add('messageBox');
+    // Füge den Typ als weitere Klasse hinzu (z.B. 'success', 'error' für spezifisches Styling)
+    messageBox.classList.add(type);
+
     document.body.appendChild(messageBox);
 
+    // Eine kleine Verzögerung vor dem Hinzufügen der 'show'-Klasse für die Animation
+    // Dies ist wichtig, wenn deine CSS-Transition 'opacity' von 0 auf 1 animieren soll.
     setTimeout(() => {
-        document.body.removeChild(messageBox);
-    }, 3000); // Nachricht nach 3 Sekunden ausblenden
+        messageBox.classList.add('show');
+    }, 10);
+
+    // Nachricht nach 3 Sekunden ausblenden
+    setTimeout(() => {
+        messageBox.classList.remove('show'); // Animation zum Ausblenden starten
+        // Nach der Ausblendanimation das Element entfernen
+        messageBox.addEventListener('transitionend', () => {
+            // Stelle sicher, dass das Element tatsächlich ausgeblendet ist, bevor es entfernt wird
+            if (!messageBox.classList.contains('show')) {
+                document.body.removeChild(messageBox);
+            }
+        }, { once: true }); // Event Listener nur einmal ausführen
+    }, 3000);
 }
 
 // Gibt die Referenz zum aktuellen Semester des Benutzers zurück
@@ -99,8 +91,11 @@ function createSubjectElement(subjectId, subjectData) {
     if (subjectData.grades) {
         for (const gradeKey in subjectData.grades) {
             if (Object.hasOwnProperty.call(subjectData.grades, gradeKey)) {
-                const gradeValue = subjectData.grades[gradeKey];
-                gradesHTML += `<p class="new-grade" data-grade-key="${gradeKey}">${parseFloat(gradeValue).toFixed(1)}</p>`;
+                const gradeEntry = subjectData.grades[gradeKey]; // Ist jetzt ein Objekt {value, factor}
+                // Sicherstellen, dass gradeEntry ein Objekt ist und value/factor hat
+                const gradeValue = parseFloat(gradeEntry.value || 0).toFixed(1);
+                const gradeFactor = parseFloat(gradeEntry.factor || 1).toFixed(1); // Standardfaktor 1, falls nicht vorhanden
+                gradesHTML += `<p class="new-grade" data-grade-key="${gradeKey}" data-grade-factor="${gradeFactor}">${gradeValue} (x${gradeFactor})</p>`;
             }
         }
     }
@@ -115,7 +110,9 @@ function createSubjectElement(subjectId, subjectData) {
     const nameClassElement = newClassDiv.querySelector(".nameClass");
     const addGradeButton = newClassDiv.querySelector(".add-grade");
     const averageDisplay = newClassDiv.querySelector(".average");
+    // Noten-Elemente beim Erstellen des Faches finden und Event Listener anbringen
     const gradeDisplayElements = newClassDiv.querySelectorAll(".new-grade");
+
 
     // Event Listener zum Bearbeiten des Fachnamens
     nameClassElement.addEventListener("click", () => {
@@ -132,13 +129,19 @@ function createSubjectElement(subjectId, subjectData) {
                 const updatedNameElement = document.createElement("p");
                 updatedNameElement.classList.add("nameClass");
                 updatedNameElement.textContent = newName;
-                updatedNameElement.addEventListener("click", () => nameClassElement.click()); // Event Listener erneut anbringen
-                newClassDiv.insertBefore(updatedNameElement, newClassDiv.firstChild);
+                // Wichtig: Event Listener für Klick auf den Namen erneut anbringen!
+                updatedNameElement.addEventListener("click", () => nameClassElement.click());
                 inputField.replaceWith(updatedNameElement);
                 set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${subjectId}/name`), newName);
             } else {
-                nameClassElement.textContent = currentName;
+                // Wenn leer, den ursprünglichen Namen wiederherstellen
                 inputField.replaceWith(nameClassElement);
+            }
+        });
+
+        inputField.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                inputField.blur(); // Löst den blur-Event aus
             }
         });
     });
@@ -146,96 +149,300 @@ function createSubjectElement(subjectId, subjectData) {
     // Funktion zur Berechnung des Durchschnitts und Speicherung in der Datenbank
     function calculateAverage(container, currentSubjectId) {
         const gradeElements = container.querySelectorAll('.new-grade');
-        let total = 0;
-        let count = 0;
-        const grades = {};
+        let totalWeighted = 0;
+        let totalFactors = 0;
+        const grades = {}; // Zum Speichern der Notenobjekte {value, factor}
 
         gradeElements.forEach((gradeElement) => {
-            const gradeValue = parseFloat(gradeElement.textContent);
-            if (!isNaN(gradeValue)) {
-                total += gradeValue;
-                count++;
-                grades[gradeElement.dataset.gradeKey] = gradeValue;
+            const gradeValue = parseFloat(gradeElement.textContent.split(' ')[0]); // Extrahiere nur den Notenwert
+            const gradeFactor = parseFloat(gradeElement.dataset.gradeFactor || 1); // Extrahiere den Faktor aus data-attribute
+            const gradeKey = gradeElement.dataset.gradeKey;
+
+            if (!isNaN(gradeValue) && !isNaN(gradeFactor)) {
+                totalWeighted += gradeValue * gradeFactor;
+                totalFactors += gradeFactor;
+                grades[gradeKey] = { value: gradeValue, factor: gradeFactor };
             }
         });
 
-        if (count > 0) {
-            const average = total / count;
+        if (totalFactors > 0) {
+            const average = totalWeighted / totalFactors;
             averageDisplay.textContent = `Durchschnitt: ${average.toFixed(2)}`;
             set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${currentSubjectId}/average`), average.toFixed(2));
             set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${currentSubjectId}/grades`), grades);
         } else {
             averageDisplay.textContent = `Durchschnitt: 0`;
             set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${currentSubjectId}/average`), '0');
-            set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${currentSubjectId}/grades`), {});
+            // Wenn keine Noten vorhanden sind, stelle sicher, dass 'grades' auch null ist (löscht den Knoten)
+            set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${currentSubjectId}/grades`), null);
         }
     }
 
+
     // Event Listener zum Hinzufügen neuer Noten
     addGradeButton.addEventListener("click", () => {
-        const newGradeElement = document.createElement("p");
-        newGradeElement.classList.add("new-grade");
+        // Überprüfen, ob bereits Eingabefelder aktiv sind
+        if (newClassDiv.querySelector('.grade-input-container')) {
+            showMessage("Bitte beende die aktuelle Eingabe zuerst.", "warning");
+            return;
+        }
+
+        const inputContainer = document.createElement("div");
+        inputContainer.style.cssText = 'display: flex; gap: 5px; margin-bottom: 10px;'; // CSS für Container
+        inputContainer.classList.add('grade-input-container'); // Füge eine Klasse für Styling hinzu
 
         const noteInput = document.createElement("input");
-        noteInput.type = "text";
+        noteInput.type = "number"; // Verwende 'number' für Noten
+        noteInput.placeholder = "Note";
         noteInput.value = "0.0";
         noteInput.classList.add("input-grade");
         noteInput.setAttribute("min", "1");
         noteInput.setAttribute("max", "6");
+        noteInput.setAttribute("step", "0.1"); // Ermöglicht Dezimalzahlen
 
-        noteInput.addEventListener("blur", () => {
+        const factorInput = document.createElement("input");
+        factorInput.type = "number"; // Verwende 'number' für Faktoren
+        factorInput.placeholder = "Faktor";
+        factorInput.value = "1.0"; // Standardfaktor
+        factorInput.classList.add("input-grade"); // <--- HIER GEÄNDERT: Gleiche Klasse wie Note
+        factorInput.setAttribute("min", "0.1"); // Mindestfaktor, z.B. 0.5
+        factorInput.setAttribute("step", "0.1"); // Ermöglicht Dezimalzahlen
+
+        // Hinzufügen eines Speichern-Buttons
+        const saveButton = document.createElement("button");
+        saveButton.textContent = "✓"; // Häkchen-Symbol
+        saveButton.classList.add("save-grade-button");
+        saveButton.style.cssText = 'background-color: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;';
+
+
+        inputContainer.appendChild(noteInput);
+        inputContainer.appendChild(factorInput);
+        inputContainer.appendChild(saveButton); // Speichern-Button zum Container hinzufügen
+        newClassDiv.insertBefore(inputContainer, addGradeButton);
+
+        noteInput.focus(); // Fokus auf das erste Eingabefeld setzen
+
+        const saveNewGrade = () => {
             let gradeValue = parseFloat(noteInput.value);
-            if (gradeValue < 1) {
+            let gradeFactor = parseFloat(factorInput.value);
+
+            // Validierung für Note
+            if (isNaN(gradeValue) || gradeValue < 1) {
                 gradeValue = 1;
-                noteInput.value = 1;
             } else if (gradeValue > 6) {
                 gradeValue = 6;
-                noteInput.value = 6;
             }
-            newGradeElement.textContent = gradeValue.toFixed(1);
+
+            // Validierung für Faktor
+            if (isNaN(gradeFactor) || gradeFactor <= 0) {
+                gradeFactor = 1;
+            }
+
+            const newGradeElement = document.createElement("p");
+            newGradeElement.classList.add("new-grade");
+            newGradeElement.textContent = `${gradeValue.toFixed(1)} (x${gradeFactor.toFixed(1)})`;
+            newGradeElement.dataset.gradeFactor = gradeFactor.toFixed(1); // Speichern als Data-Attribut
+
             const newGradeRef = push(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${subjectId}/grades`));
             newGradeElement.dataset.gradeKey = newGradeRef.key;
-            newClassDiv.insertBefore(newGradeElement, addGradeButton);
-            newClassDiv.removeChild(noteInput);
+
+            newClassDiv.insertBefore(newGradeElement, inputContainer);
+            newClassDiv.removeChild(inputContainer);
+
+            // Speichere Note und Faktor als Objekt
+            set(newGradeRef, { value: gradeValue, factor: gradeFactor });
             calculateAverage(newClassDiv, subjectId);
+
+            // Event Listener für die neu hinzugefügte Note anbringen (für Bearbeitung)
+            attachGradeEditListener(newGradeElement, subjectId);
+            showMessage("Note hinzugefügt!", "success");
+        };
+
+        // Event Listener für den Speichern-Button
+        saveButton.addEventListener("click", saveNewGrade);
+
+        // Enter-Taste Listener für beide Felder
+        noteInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                saveNewGrade();
+            }
+        });
+        factorInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                saveNewGrade();
+            }
         });
 
-        newClassDiv.insertBefore(noteInput, addGradeButton);
-        noteInput.focus();
+        // NEU: Blur-Event-Handling mit setTimeout zur Vermeidung von sofortigem Verschwinden
+        let blurTimeout;
+        const handleBlur = () => {
+            blurTimeout = setTimeout(() => {
+                // Prüfe, ob der Fokus *nicht* mehr innerhalb des Containers ist
+                if (!inputContainer.contains(document.activeElement)) {
+                    // Wenn der Benutzer nichts eingegeben hat und den Fokus verlässt, einfach entfernen
+                    if (noteInput.value.trim() === "" && factorInput.value.trim() === "") {
+                        newClassDiv.removeChild(inputContainer);
+                    } else if (!isNaN(parseFloat(noteInput.value)) && !isNaN(parseFloat(factorInput.value))) {
+                        saveNewGrade();
+                    } else {
+                        // Wenn ungültige Eingabe, einfach den Container entfernen
+                        newClassDiv.removeChild(inputContainer);
+                    }
+                }
+            }, 100); // Kurze Verzögerung, um den Wechsel zwischen Feldern zu ermöglichen
+        };
+
+        noteInput.addEventListener("blur", handleBlur);
+        factorInput.addEventListener("blur", handleBlur);
+
+        // Optional: Fokusmanagement, wenn man von einem Feld zum anderen wechselt
+        noteInput.addEventListener("focus", () => clearTimeout(blurTimeout));
+        factorInput.addEventListener("focus", () => clearTimeout(blurTimeout));
     });
 
-    // Event Listener zum Bearbeiten vorhandener Noten
-    gradeDisplayElements.forEach(gradeElement => {
-        gradeElement.addEventListener("click", () => {
-            const currentGradeText = gradeElement.textContent;
-            const inputField = document.createElement("input");
-            inputField.type = "text";
-            inputField.value = currentGradeText;
-            inputField.classList.add("input-grade");
-            inputField.setAttribute("min", "1");
-            inputField.setAttribute("max", "6");
-            newClassDiv.replaceChild(inputField, gradeElement);
-            inputField.focus();
+    // Funktion zum Anbringen des Event Listeners für die Notenbearbeitung
+    function attachGradeEditListener(gradeElementToAttach, subjectIdForEdit) {
+        gradeElementToAttach.addEventListener("click", () => {
+            // Überprüfen, ob bereits Eingabefelder aktiv sind
+            if (newClassDiv.querySelector('.grade-input-container')) {
+                showMessage("Bitte beende die aktuelle Eingabe zuerst.", "warning");
+                return;
+            }
 
-            inputField.addEventListener("blur", () => {
-                let gradeValue = parseFloat(inputField.value);
-                if (gradeValue < 1) {
+            const currentGradeText = gradeElementToAttach.textContent.split(' ')[0]; // Nur den Notenwert extrahieren
+            const currentFactorText = gradeElementToAttach.dataset.gradeFactor || "1.0"; // Faktor aus Data-Attribut
+
+            const inputContainer = document.createElement("div");
+            inputContainer.style.cssText = 'display: flex; gap: 5px;'; // CSS für Container
+            inputContainer.classList.add('grade-input-container'); // Füge eine Klasse für Styling hinzu
+
+            const noteInput = document.createElement("input");
+            noteInput.type = "number";
+            noteInput.value = currentGradeText;
+            noteInput.classList.add("input-grade");
+            noteInput.setAttribute("min", "1");
+            noteInput.setAttribute("max", "6");
+            noteInput.setAttribute("step", "0.1");
+
+            const factorInput = document.createElement("input");
+            factorInput.type = "number";
+            factorInput.value = currentFactorText;
+            factorInput.classList.add("input-grade"); // <--- HIER GEÄNDERT: Gleiche Klasse wie Note
+            factorInput.setAttribute("min", "0.1");
+            factorInput.setAttribute("step", "0.1");
+
+            // Hinzufügen eines Speichern-Buttons
+            const saveButton = document.createElement("button");
+            saveButton.textContent = "✓"; // Häkchen-Symbol
+            saveButton.classList.add("save-grade-button");
+            saveButton.style.cssText = 'background-color: #4CAF50; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;';
+
+            // Hinzufügen eines Löschen-Buttons
+            const deleteButton = document.createElement("button");
+            deleteButton.textContent = "🗑️"; // Papierkorb-Symbol
+            deleteButton.classList.add("delete-grade-button");
+            deleteButton.style.cssText = 'background-color: #f44336; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer; margin-left: 5px;';
+
+
+            inputContainer.appendChild(noteInput);
+            inputContainer.appendChild(factorInput);
+            inputContainer.appendChild(saveButton); // Speichern-Button zum Container hinzufügen
+            inputContainer.appendChild(deleteButton); // Löschen-Button hinzufügen
+
+            newClassDiv.replaceChild(inputContainer, gradeElementToAttach); // Ersetze das p-Element durch den Container
+            noteInput.focus();
+
+            const saveEditedGrade = () => {
+                let gradeValue = parseFloat(noteInput.value);
+                let gradeFactor = parseFloat(factorInput.value);
+
+                if (isNaN(gradeValue) || gradeValue < 1) {
                     gradeValue = 1;
-                    inputField.value = 1;
                 } else if (gradeValue > 6) {
                     gradeValue = 6;
-                    inputField.value = 6;
                 }
-                const gradeKey = gradeElement.dataset.gradeKey;
+
+                if (isNaN(gradeFactor) || gradeFactor <= 0) {
+                    gradeFactor = 1;
+                }
+
+                const gradeKey = gradeElementToAttach.dataset.gradeKey;
                 const updatedGradeElement = document.createElement("p");
                 updatedGradeElement.classList.add("new-grade");
                 updatedGradeElement.dataset.gradeKey = gradeKey;
-                updatedGradeElement.textContent = gradeValue.toFixed(1);
-                newClassDiv.replaceChild(updatedGradeElement, inputField);
-                set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${subjectId}/grades/${gradeKey}`), gradeValue);
-                calculateAverage(newClassDiv, subjectId);
+                updatedGradeElement.dataset.gradeFactor = gradeFactor.toFixed(1); // Faktor aktualisieren
+                updatedGradeElement.textContent = `${gradeValue.toFixed(1)} (x${gradeFactor.toFixed(1)})`;
+
+                newClassDiv.replaceChild(updatedGradeElement, inputContainer); // Ersetze den Container durch das p-Element
+                set(ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${subjectIdForEdit}/grades/${gradeKey}`), { value: gradeValue, factor: gradeFactor });
+                calculateAverage(newClassDiv, subjectIdForEdit);
+                attachGradeEditListener(updatedGradeElement, subjectIdForEdit); // Listener neu anbringen
+                showMessage("Note aktualisiert!", "success");
+            };
+
+            const deleteGrade = () => {
+                const gradeKey = gradeElementToAttach.dataset.gradeKey;
+                const gradeRef = ref(database, `users/${currentUserUid}/semesters/${currentSemesterKey}/${subjectIdForEdit}/grades/${gradeKey}`);
+                set(gradeRef, null) // Löscht den Eintrag in Firebase
+                    .then(() => {
+                        newClassDiv.removeChild(inputContainer); // Entfernt die Eingabefelder
+                        calculateAverage(newClassDiv, subjectIdForEdit); // Durchschnitt neu berechnen
+                        showMessage("Note gelöscht!", "success");
+                    })
+                    .catch(error => {
+                        console.error("Fehler beim Löschen der Note:", error);
+                        showMessage("Fehler beim Löschen der Note.", "error");
+                    });
+            };
+
+            // Event Listener für den Speichern-Button
+            saveButton.addEventListener("click", saveEditedGrade);
+            // Event Listener für den Löschen-Button
+            deleteButton.addEventListener("click", deleteGrade);
+
+
+            // Enter-Taste Listener für beide Felder
+            noteInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    saveEditedGrade();
+                }
             });
+            factorInput.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    saveEditedGrade();
+                }
+            });
+
+            // NEU: Blur-Event-Handling mit setTimeout zur Vermeidung von sofortigem Verschwinden
+            let blurTimeout;
+            const handleBlur = () => {
+                blurTimeout = setTimeout(() => {
+                    if (!inputContainer.contains(document.activeElement)) {
+                        // Wenn der Benutzer beide Felder leer gemacht hat, als wäre es ein Löschvorgang
+                        if (noteInput.value.trim() === "" && factorInput.value.trim() === "") {
+                             deleteGrade(); // Versuche zu löschen
+                        } else if (!isNaN(parseFloat(noteInput.value)) && !isNaN(parseFloat(factorInput.value))) {
+                            saveEditedGrade();
+                        } else {
+                            // Wenn ungültige Eingabe, das ursprüngliche p-Element wiederherstellen
+                            newClassDiv.replaceChild(gradeElementToAttach, inputContainer);
+                            attachGradeEditListener(gradeElementToAttach, subjectIdForEdit); // Listener neu anbringen
+                        }
+                    }
+                }, 100);
+            };
+
+            noteInput.addEventListener("blur", handleBlur);
+            factorInput.addEventListener("blur", handleBlur);
+
+            noteInput.addEventListener("focus", () => clearTimeout(blurTimeout));
+            factorInput.addEventListener("focus", () => clearTimeout(blurTimeout));
         });
+    }
+
+    // Event Listener zum Bearbeiten vorhandener Noten (beim Initialisieren des Faches)
+    gradeDisplayElements.forEach(gradeElement => {
+        attachGradeEditListener(gradeElement, subjectId);
     });
 
     return newClassDiv;
@@ -244,12 +451,12 @@ function createSubjectElement(subjectId, subjectData) {
 // Event Listener zum Hinzufügen eines neuen Fachs
 addSubjectButton.addEventListener("click", async () => {
     if (!currentSemesterKey) {
-        showMessage("Bitte wähle zuerst ein Semester aus.");
+        showMessage("Bitte wähle zuerst ein Semester aus.", "warning");
         return;
     }
 
     if (!currentUserUid) {
-        showMessage("Benutzer ist nicht angemeldet.");
+        showMessage("Benutzer ist nicht angemeldet.", "error");
         return;
     }
 
@@ -270,7 +477,16 @@ addSubjectButton.addEventListener("click", async () => {
     if (userSemesterRef && subjectName && subjectName.trim() !== "") {
         const newSubjectRef = push(userSemesterRef);
         const subjectId = newSubjectRef.key;
-        set(newSubjectRef, { name: subjectName, grades: {}, average: '0' });
+        set(newSubjectRef, { name: subjectName, grades: null, average: '0' })
+            .then(() => {
+                showMessage("Fach erfolgreich hinzugefügt!", "success");
+            })
+            .catch(error => {
+                console.error("Fehler beim Hinzufügen des Fachs:", error);
+                showMessage("Fehler beim Hinzufügen des Fachs.", "error");
+            });
+    } else if (subjectName !== null) { // Wenn der Benutzer auf "Abbrechen" klickt, ist subjectName null
+        showMessage("Fachname darf nicht leer sein.", "warning");
     }
 });
 
@@ -299,7 +515,7 @@ function loadSemesterData(semesterKey) {
                         if (subjectId !== 'name' && subjectId !== 'semesterNumber' &&
                             typeof subjectData === 'object' && subjectData !== null &&
                             (subjectData.name !== undefined || subjectData.grades !== undefined || subjectData.average !== undefined)) {
-                            
+
                             console.log("Verarbeite Fach:", subjectId, subjectData);
                             const subjectElement = createSubjectElement(subjectId, subjectData);
                             mainSemester.appendChild(subjectElement);
@@ -380,7 +596,7 @@ function loadUserSemesters() {
 // Event Listener zum Hinzufügen eines neuen Semesters mit automatischer Nummerierung
 addSemesterButton.addEventListener("click", async () => {
     if (!currentUserUid) {
-        showMessage("Bitte melde dich zuerst an, um Semester hinzuzufügen.");
+        showMessage("Bitte melde dich zuerst an, um Semester hinzuzufügen.", "warning");
         return;
     }
 
@@ -398,7 +614,7 @@ addSemesterButton.addEventListener("click", async () => {
                     nextSemesterNumber = Math.max(...semesterNumbers) + 1;
                 }
             }
-            
+
             // Der Semester-Name wird jetzt automatisch generiert (z.B. "Semester 1")
             const newSemesterName = `Semester ${nextSemesterNumber}`;
 
@@ -407,13 +623,14 @@ addSemesterButton.addEventListener("click", async () => {
                 semesterNumber: nextSemesterNumber // Die fortlaufende Nummer
             }).then((newSemesterRef) => {
                 console.log("Neues Semester hinzugefügt mit Schlüssel:", newSemesterRef.key, "und Name:", newSemesterName, "Nummer:", nextSemesterNumber);
+                showMessage("Semester erfolgreich hinzugefügt!", "success");
             }).catch(error => {
                 console.error("Fehler beim Hinzufügen des Semesters:", error);
-                showMessage("Fehler beim Hinzufügen des Semesters.");
+                showMessage("Fehler beim Hinzufügen des Semesters.", "error");
             });
         } catch (error) {
             console.error("Fehler beim Abrufen der Semesterdaten:", error);
-            showMessage("Fehler beim Laden der Semesterdaten.");
+            showMessage("Fehler beim Laden der Semesterdaten.", "error");
         }
     }
 });
