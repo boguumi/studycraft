@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign-Up</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="files/logo.svg" type=" image/x-icon" />
+    <script type="module" src="signup.js" defer></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+</head>
+
+<body class="page_sign-up site-gap-left">
+    <div class="wrapper">
+        <h1>Sign-up</h1>
+        <main>
+            <form class="sign-up-form" id="form">
+                <div class="formular">
+                    <div>
+                        <p>Vorname</p>
+                        <input required type="text" name="firstname" id="firstname_input" placeholder="Vorname" />
+                    </div>
+                    <div>
+                        <p>E-Mail</p>
+                        <input required type="email" name="email" id="email_input" placeholder="E-Mail" />
+                    </div>
+                    <div>
+                        <p>Passwort</p>
+                        <input required type="password" name="password" id="password_input" placeholder="Passwort" />
+                    </div>
+                    <div>
+                        <p>Passwort wiederholen</p>
+                        <input required type="password" name="repeat-password" id="repeat-password_input"
+                            placeholder="Repeat Passwort" />
+                    </div>
+                </div>
+
+                <button type="submit">Registrieren</button>
+                <button id="google-signup-button" type="button">Mit Google registrieren</button>
+
+                <p id="error-message" style="color: red;"></p>
+                <button class="weiterleitung-Registrieren">Noch kein Konto? Registriere dich hier</button>
+            </form>
+        </main>
+    </div>
+</body>
+
+</html>
